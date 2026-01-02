@@ -1,0 +1,13 @@
+backbone:
+  name: "BACKBONE"
+  ip: "X.X.X.X"
+  port: 23
+
+poll_interval_sec: 30
+log_last_lines: 80
+
+# 스크린샷 쿨타임
+snapshot_dedupe_minutes: 10
+
+# 스냅샷 저장 루트
+snapshot_dir: ""C:\Users\No.1\Desktop\장애모음""

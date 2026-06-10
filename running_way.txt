@@ -1,4 +1,6 @@
 py -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
+
+# config.yaml과 port_map.yaml을 운영 환경에 맞게 수정한 뒤 실행
 python main.py

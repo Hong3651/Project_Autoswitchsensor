@@ -4,6 +4,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import yaml
@@ -20,6 +21,10 @@ if sys.platform.startswith("win"):
 
 
 console = Console()
+
+
+class ConfigError(ValueError):
+    pass
 
 #--------------------------------
 def now_kst_str() -> str:
@@ -428,14 +433,63 @@ def render_ui(
 # 설정 로드
 # -----------------------------
 def load_config(path: str) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        raise ConfigError(f"{path} YAML 형식을 확인하세요: {e}") from e
+
+    if not isinstance(data, dict):
+        raise ConfigError(f"{path} 파일은 비어 있거나 YAML 객체가 아닙니다.")
+
+    backbone = data.get("backbone")
+    if not isinstance(backbone, dict):
+        raise ConfigError("config.yaml에 backbone 설정이 필요합니다.")
+
+    for key in ("name", "ip"):
+        if not str(backbone.get(key, "")).strip():
+            raise ConfigError(f"config.yaml의 backbone.{key} 값을 입력하세요.")
+
+    for key in ("port",):
+        try:
+            int(backbone.get(key, 23))
+        except (TypeError, ValueError) as e:
+            raise ConfigError(f"config.yaml의 backbone.{key} 값은 숫자여야 합니다.") from e
+
+    for key in ("poll_interval_sec", "log_last_lines", "snapshot_dedupe_minutes"):
+        try:
+            value = int(data.get(key))
+        except (TypeError, ValueError) as e:
+            raise ConfigError(f"config.yaml의 {key} 값은 숫자여야 합니다.") from e
+        if value <= 0:
+            raise ConfigError(f"config.yaml의 {key} 값은 1 이상이어야 합니다.")
+
+    snapshot_dir = str(data.get("snapshot_dir", "")).strip()
+    if not snapshot_dir:
+        data["snapshot_dir"] = "snapshots"
+
+    return data
 
 def load_port_map(path: str) -> Dict[str, PortMapEntry]:
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except yaml.YAMLError as e:
+        raise ConfigError(f"{path} YAML 형식을 확인하세요: {e}") from e
+
+    if not isinstance(data, dict):
+        raise ConfigError(f"{path} 파일은 YAML 객체여야 합니다.")
+
+    ports = data.get("ports") or {}
+    if not isinstance(ports, dict):
+        raise ConfigError("port_map.yaml의 ports 값은 객체여야 합니다.")
+
     pm: Dict[str, PortMapEntry] = {}
-    for port, info in (data.get("ports") or {}).items():
+    for port, info in ports.items():
+        if info is None:
+            info = {}
+        if not isinstance(info, dict):
+            raise ConfigError(f"port_map.yaml의 {port} 항목은 객체여야 합니다.")
         pm[port] = PortMapEntry(
             target=str(info.get("target", "")),
             area=str(info.get("area", "")),
@@ -485,8 +539,12 @@ async def main():
         console.print("port_map.yaml이 없습니다. port_map.example.yaml을 복사해 port_map.yaml로 만드세요.")
         return
 
-    cfg = load_config("config.yaml")
-    port_map = load_port_map("port_map.yaml")
+    try:
+        cfg = load_config("config.yaml")
+        port_map = load_port_map("port_map.yaml")
+    except ConfigError as e:
+        console.print(f"[red]설정 오류:[/red] {e}")
+        return
 
     device = cfg["backbone"]
     device_name = device["name"]
@@ -497,6 +555,7 @@ async def main():
     log_last_lines = int(cfg.get("log_last_lines", 80))
     dedupe_min = int(cfg.get("snapshot_dedupe_minutes", 10))
     snapshot_dir = str(cfg.get("snapshot_dir", "snapshots"))
+    snapshot_dir = str(Path(snapshot_dir).expanduser())
 
     ensure_dir(snapshot_dir)
     store = SnapshotStore(snapshot_dir, dedupe_min)

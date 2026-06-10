@@ -5,9 +5,5 @@ backbone:
 
 poll_interval_sec: 30
 log_last_lines: 80
-
-# 동일 이벤트 스냅샷 저장 쿨타임(분)
 snapshot_dedupe_minutes: 10
-
-# 스냅샷 저장 루트. 상대 경로를 권장합니다.
 snapshot_dir: "snapshots"

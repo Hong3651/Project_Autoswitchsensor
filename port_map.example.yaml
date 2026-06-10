@@ -2,8 +2,8 @@ ports:
   Gi1/0/1:
     target: "EXAMPLE-ACCESS-SW-01"
     area: "예시 구간"
-    note: "실제 운영 포트 정보로 교체하세요"
+    note: "주기표 또는 설계도 기준 uplink 정보"
   Gi1/0/2:
     target: "EXAMPLE-ACCESS-SW-02"
     area: "예시 구간"
-    note: "계정, 비밀번호, 실제 내부망 민감정보는 기록하지 마세요"
+    note: "실제 운영 정보로 교체"
